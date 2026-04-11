@@ -1,0 +1,62 @@
+[package]
+name = "backbone-app"
+version = "0.1.0"
+edition = "2021"
+description = "Minimal Backbone application skeleton — runnable starting point for any Backbone-based service"
+authors = ["Farid Hidayat"]
+license = "MIT"
+
+[[bin]]
+name = "backbone-app"
+path = "src/main.rs"
+
+[dependencies]
+backbone-auth          = { git = "https://github.com/faridlab/backbone-framework" }
+backbone-authorization = { git = "https://github.com/faridlab/backbone-framework" }
+backbone-cache         = { git = "https://github.com/faridlab/backbone-framework" }
+backbone-core          = { git = "https://github.com/faridlab/backbone-framework" }
+backbone-email         = { git = "https://github.com/faridlab/backbone-framework" }
+backbone-graphql       = { git = "https://github.com/faridlab/backbone-framework" }
+backbone-health        = { git = "https://github.com/faridlab/backbone-framework" }
+backbone-jobs          = { git = "https://github.com/faridlab/backbone-framework" }
+backbone-messaging     = { git = "https://github.com/faridlab/backbone-framework" }
+backbone-observability = { git = "https://github.com/faridlab/backbone-framework", features = ["prometheus-metrics", "otel-tracing", "middleware"] }
+backbone-orm           = { git = "https://github.com/faridlab/backbone-framework" }
+backbone-queue         = { git = "https://github.com/faridlab/backbone-framework" }
+backbone-rate-limit    = { git = "https://github.com/faridlab/backbone-framework", features = ["redis"] }
+backbone-search        = { git = "https://github.com/faridlab/backbone-framework" }
+backbone-storage       = { git = "https://github.com/faridlab/backbone-framework" }
+
+# External dependencies — versions match what monorepo-backbone uses today.
+tokio = { version = "1.0", features = ["full"] }
+axum = { version = "0.7", features = ["macros"] }
+tower = "0.4"
+tower-http = { version = "0.5", features = ["cors", "trace", "timeout"] }
+tower-cookies = "0.10"
+
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+serde_yaml = "0.9"
+
+sqlx = { version = "0.8", features = ["runtime-tokio-rustls", "postgres", "uuid", "chrono", "json", "migrate"] }
+
+tracing = "0.1"
+tracing-subscriber = "0.3"
+
+anyhow = "1.0"
+thiserror = "1.0"
+
+config = "0.14"
+dotenvy = "0.15"
+
+uuid = { version = "1.0", features = ["v4", "serde"] }
+chrono = { version = "0.4", features = ["serde"] }
+
+async-trait = "0.1"
+mime = "0.3"
+reqwest = { version = "0.11", features = ["json"] }
+jsonwebtoken = "9"
+validator = { version = "0.18", features = ["derive"] }
+
+[dev-dependencies]
+tempfile = "3.0"
