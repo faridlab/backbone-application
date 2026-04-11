@@ -1,0 +1,16 @@
+# Development overlay for application.yml
+#
+# Loaded automatically when APP_ENV=dev (the default).
+
+server:
+  host: "127.0.0.1"
+  port: 8080
+
+logging:
+  level: "debug"
+  format: "pretty"
+
+security:
+  cors_origins:
+    - "http://localhost:3000"
+    - "http://localhost:5173"
