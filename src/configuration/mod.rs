@@ -136,6 +136,58 @@ impl AppConfig {
             .parse()
             .expect("invalid server.host:port")
     }
+
+    /// Emit `tracing::warn!` lines for any configuration value that looks
+    /// like a development placeholder when running outside a dev environment.
+    /// Should be called once at startup, after `load()` and after the tracing
+    /// subscriber is installed.
+    ///
+    /// Currently checks:
+    /// - `database.url` for default credentials (`root:password`,
+    ///   `postgres:postgres`).
+    /// - `JWT_SECRET` env var against a known list of placeholder substrings.
+    ///
+    /// Apps with extra surfaces (SMTP, signing keys, etc.) should add their
+    /// own checks alongside this one.
+    pub fn validate_defaults(&self, env: &str) {
+        validate_defaults(env, &self.database.url);
+    }
+}
+
+/// Stateless variant of [`AppConfig::validate_defaults`]. Easier to call
+/// from places that don't hold the full config (e.g. tests, scripts).
+pub fn validate_defaults(env: &str, db_url: &str) {
+    let is_dev = is_dev_env(env);
+    if !is_dev {
+        if db_url.contains("root:password") || db_url.contains("postgres:postgres") {
+            tracing::warn!(
+                "Database URL contains default credentials in '{}' environment. \
+                 Use strong credentials in production.",
+                env
+            );
+        }
+        let jwt_secret = std::env::var("JWT_SECRET").unwrap_or_default();
+        let placeholders = [
+            "change-this",
+            "your-super-secret",
+            "dev-jwt-secret",
+            "not-for-production",
+            "changeme",
+        ];
+        if placeholders.iter().any(|p| jwt_secret.contains(p)) {
+            tracing::warn!(
+                "JWT_SECRET appears to be a placeholder. Set a strong secret for production."
+            );
+        }
+    }
+}
+
+/// `"dev" | "development" | "local"` — case-insensitive.
+fn is_dev_env(env: &str) -> bool {
+    matches!(
+        env.to_ascii_lowercase().as_str(),
+        "dev" | "development" | "local"
+    )
 }
 
 /// Expand `${VAR:default}` and `${VAR}` placeholders in a YAML source string.
@@ -195,5 +247,29 @@ mod tests {
         std::env::set_var("METAPHOR_TEST_Y", "world");
         assert_eq!(expand_env("${METAPHOR_TEST_Y:fallback}"), "world");
         std::env::remove_var("METAPHOR_TEST_Y");
+    }
+
+    #[test]
+    fn dev_env_classifier_is_case_insensitive() {
+        assert!(is_dev_env("dev"));
+        assert!(is_dev_env("DEV"));
+        assert!(is_dev_env("Development"));
+        assert!(is_dev_env("local"));
+        assert!(!is_dev_env("production"));
+        assert!(!is_dev_env("staging"));
+    }
+
+    #[test]
+    fn validate_defaults_is_silent_in_dev() {
+        // Just confirms no panic; the warns themselves are tracing-side
+        // effects that aren't asserted on here.
+        validate_defaults("dev", "postgres://postgres:postgres@localhost/db");
+    }
+
+    #[test]
+    fn validate_defaults_runs_in_prod_without_panicking() {
+        std::env::set_var("JWT_SECRET", "change-this-please");
+        validate_defaults("production", "postgres://postgres:postgres@localhost/db");
+        std::env::remove_var("JWT_SECRET");
     }
 }
