@@ -11,21 +11,22 @@ name = "backbone-app"
 path = "src/main.rs"
 
 [dependencies]
-backbone-auth          = { git = "https://github.com/faridlab/backbone-framework" }
-backbone-authorization = { git = "https://github.com/faridlab/backbone-framework" }
-backbone-cache         = { git = "https://github.com/faridlab/backbone-framework" }
-backbone-core          = { git = "https://github.com/faridlab/backbone-framework" }
-backbone-email         = { git = "https://github.com/faridlab/backbone-framework" }
-backbone-graphql       = { git = "https://github.com/faridlab/backbone-framework" }
-backbone-health        = { git = "https://github.com/faridlab/backbone-framework" }
-backbone-jobs          = { git = "https://github.com/faridlab/backbone-framework" }
-backbone-messaging     = { git = "https://github.com/faridlab/backbone-framework" }
-backbone-observability = { git = "https://github.com/faridlab/backbone-framework", features = ["prometheus-metrics", "otel-tracing", "middleware"] }
-backbone-orm           = { git = "https://github.com/faridlab/backbone-framework" }
-backbone-queue         = { git = "https://github.com/faridlab/backbone-framework" }
-backbone-rate-limit    = { git = "https://github.com/faridlab/backbone-framework", features = ["redis"] }
-backbone-search        = { git = "https://github.com/faridlab/backbone-framework" }
-backbone-storage       = { git = "https://github.com/faridlab/backbone-framework" }
+backbone-auth          = { git = "https://github.com/faridlab/backbone-framework", tag = "v2.1.0" }
+backbone-authorization = { git = "https://github.com/faridlab/backbone-framework", tag = "v2.1.0" }
+backbone-cache         = { git = "https://github.com/faridlab/backbone-framework", tag = "v2.1.0" }
+backbone-core          = { git = "https://github.com/faridlab/backbone-framework", tag = "v2.1.0" }
+backbone-email         = { git = "https://github.com/faridlab/backbone-framework", tag = "v2.1.0" }
+backbone-graphql       = { git = "https://github.com/faridlab/backbone-framework", tag = "v2.1.0" }
+backbone-health        = { git = "https://github.com/faridlab/backbone-framework", tag = "v2.1.0", features = ["cli"] }
+backbone-jobs          = { git = "https://github.com/faridlab/backbone-framework", tag = "v2.1.0" }
+backbone-maintenance   = { git = "https://github.com/faridlab/backbone-framework", tag = "v2.1.0" }
+backbone-messaging     = { git = "https://github.com/faridlab/backbone-framework", tag = "v2.1.0" }
+backbone-observability = { git = "https://github.com/faridlab/backbone-framework", tag = "v2.1.0", features = ["prometheus-metrics", "otel-tracing", "middleware", "audit"] }
+backbone-orm           = { git = "https://github.com/faridlab/backbone-framework", tag = "v2.1.0" }
+backbone-queue         = { git = "https://github.com/faridlab/backbone-framework", tag = "v2.1.0" }
+backbone-rate-limit    = { git = "https://github.com/faridlab/backbone-framework", tag = "v2.1.0", features = ["redis"] }
+backbone-search        = { git = "https://github.com/faridlab/backbone-framework", tag = "v2.1.0" }
+backbone-storage       = { git = "https://github.com/faridlab/backbone-framework", tag = "v2.1.0" }
 
 # External dependencies — versions match what monorepo-backbone uses today.
 tokio = { version = "1.0", features = ["full"] }
@@ -60,3 +61,25 @@ validator = { version = "0.18", features = ["derive"] }
 
 [dev-dependencies]
 tempfile = "3.0"
+
+# Local development override — point all backbone-* git deps at the
+# in-tree workspace so changes to backbone-framework are picked up without
+# requiring a git push + tag bump. Comment out (or use a release tag) when
+# building against published versions.
+[patch."https://github.com/faridlab/backbone-framework"]
+backbone-auth          = { path = "../backbone-framework/backbone-auth" }
+backbone-authorization = { path = "../backbone-framework/backbone-authorization" }
+backbone-cache         = { path = "../backbone-framework/backbone-cache" }
+backbone-core          = { path = "../backbone-framework/backbone-core" }
+backbone-email         = { path = "../backbone-framework/backbone-email" }
+backbone-graphql       = { path = "../backbone-framework/backbone-graphql" }
+backbone-health        = { path = "../backbone-framework/backbone-health" }
+backbone-jobs          = { path = "../backbone-framework/backbone-jobs" }
+backbone-maintenance   = { path = "../backbone-framework/backbone-maintenance" }
+backbone-messaging     = { path = "../backbone-framework/backbone-messaging" }
+backbone-observability = { path = "../backbone-framework/backbone-observability" }
+backbone-orm           = { path = "../backbone-framework/backbone-orm" }
+backbone-queue         = { path = "../backbone-framework/backbone-queue" }
+backbone-rate-limit    = { path = "../backbone-framework/backbone-rate-limit" }
+backbone-search        = { path = "../backbone-framework/backbone-search" }
+backbone-storage       = { path = "../backbone-framework/backbone-storage" }
