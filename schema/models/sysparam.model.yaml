@@ -49,6 +49,7 @@ models:
         description: "Human-readable note for operators"
 
       metadata:
+        type: Metadata
         attributes: ["@audit_metadata"]
         description: "Audit metadata (created_at, updated_at, deleted_at, created_by, updated_by, deleted_by)"
 
