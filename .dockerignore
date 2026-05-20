@@ -1,0 +1,14 @@
+target/
+**/target/
+.git/
+.gitignore
+.github/
+*.md
+!README.md
+logs/
+storage/
+.env
+.env.*
+!*.example
+tests/fixtures/**/*.bin
+**/.DS_Store
