@@ -1,0 +1,163 @@
+# Local developer stack. One-command `metaphor docker up --env dev` from a
+# workspace, or `docker compose -f deployment/compose.dev.yaml --env-file
+# deployment/.env.dev up -d` standalone.
+#
+# Differences from compose.yaml (prod/uat):
+#   - The app runs from local source with hot reload (cargo-watch).
+#   - No Caddy: services bind 127.0.0.1 directly.
+#   - No observability (prometheus/loki/grafana/exporters).
+#   - No migrations stub (run `metaphor migration run-all` or
+#     `cargo run -- migrate` against the `127.0.0.1:5432` postgres when needed).
+#
+# Networks:
+#   backend — postgres + redis + minio + the app.
+
+# Project name. Without this, docker compose defaults to the directory it
+# was invoked from (`deployment-`), which leaks the deployment-folder name
+# into every container/network/volume identifier.
+name: backbone-app
+
+services:
+  # ───── Data stores ─────────────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks: [backend]
+    ports:
+      - "127.0.0.1:5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--save", "60", "1", "--loglevel", "warning"]
+    volumes:
+      - redisdata:/data
+    networks: [backend]
+    ports:
+      - "127.0.0.1:6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+
+  minio:
+    image: quay.io/minio/minio:latest
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    volumes:
+      - miniodata:/data
+    networks: [backend]
+    ports:
+      - "127.0.0.1:9000:9000"   # S3 API
+      - "127.0.0.1:9001:9001"   # Console
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+
+  # One-shot bucket bootstrap. Idempotent: `mc mb --ignore-existing`.
+  minio-init:
+    image: quay.io/minio/mc:latest
+    depends_on:
+      minio:
+        condition: service_healthy
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+      MINIO_PRIVATE_BUCKET: ${MINIO_PRIVATE_BUCKET}
+      MINIO_PUBLIC_BUCKET: ${MINIO_PUBLIC_BUCKET}
+    networks: [backend]
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        set -e
+        mc alias set local http://minio:9000 "$$MINIO_ROOT_USER" "$$MINIO_ROOT_PASSWORD"
+        mc mb --ignore-existing local/"$$MINIO_PRIVATE_BUCKET"
+        mc mb --ignore-existing local/"$$MINIO_PUBLIC_BUCKET"
+        mc anonymous set download local/"$$MINIO_PUBLIC_BUCKET"
+        mc anonymous set none     local/"$$MINIO_PRIVATE_BUCKET"
+        echo "minio-init: buckets ready"
+
+  # ───── Backend (Rust, hot reload via cargo-watch) ──────────────────────
+  # First build is several minutes (cargo cooks all deps from scratch).
+  # Subsequent restarts reuse the named volumes, so warm rebuilds on source
+  # edit are quick.
+  backbone-app:
+    build:
+      context: ..
+      dockerfile: Dockerfile.dev
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+    environment:
+      APP_ENV: dev
+      # Config loader picks the overlay by RUST_ENV (not APP_ENV) — keep both
+      # in sync so config/application-dev.yml is actually merged on startup.
+      RUST_ENV: dev
+      HOST: 0.0.0.0
+      PORT: "8080"
+      LOG_LEVEL: ${LOG_LEVEL:-debug}
+      LOG_FORMAT: ${LOG_FORMAT:-text}
+      RATE_LIMIT_ENABLED: ${RATE_LIMIT_ENABLED:-false}
+      # Cap cargo's parallel rustc workers. The full lib build pulls in
+      # ~100 backbone-* crates; on a Docker Desktop default (often 4-8 GB)
+      # an unconstrained -j N invocation peaks above the container's
+      # memory ceiling and the host's OOM killer fires SIGKILL on rustc.
+      # 2 jobs is a safe default; bump via CARGO_BUILD_JOBS in the host
+      # shell if you have the RAM. Set to 1 if SIGKILL still happens.
+      CARGO_BUILD_JOBS: ${CARGO_BUILD_JOBS:-2}
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      REDIS_URL: redis://redis:6379
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_PUBLIC_ENDPOINT: http://localhost:9000
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY}
+      MINIO_PRIVATE_BUCKET: ${MINIO_PRIVATE_BUCKET}
+      MINIO_PUBLIC_BUCKET: ${MINIO_PUBLIC_BUCKET}
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_ALGORITHM: ${JWT_ALGORITHM:-HS256}
+      JWT_ISSUER: ${JWT_ISSUER:-backbone-framework}
+      JWT_AUDIENCE: ${JWT_AUDIENCE:-backbone-users}
+    volumes:
+      # Source bind mount — edits on the host trigger cargo-watch.
+      - ..:/app
+      # Build artifacts in named volumes so they survive container
+      # restarts and don't leak into the host workspace.
+      - cargo_target:/app/target
+      - cargo_registry:/usr/local/cargo/registry
+      - cargo_git:/usr/local/cargo/git
+    networks: [backend]
+    ports:
+      - "127.0.0.1:8080:8080"
+
+volumes:
+  pgdata:
+  redisdata:
+  miniodata:
+  cargo_target:
+  cargo_registry:
+  cargo_git:
+
+networks:
+  backend:
