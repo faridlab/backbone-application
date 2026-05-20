@@ -1,0 +1,67 @@
+# Caddy v2 — single-host routing for the backbone-app beta stack.
+#
+# TLS: auto Let's Encrypt via ACME_EMAIL. DNS A records for every subdomain
+# below must resolve to this VPS before first boot or cert issuance will fail.
+#
+# Starter routing — add subdomains as the product grows:
+#   api        REST upstream            backbone-app:8080
+#   (add)      gRPC upstream (h2c)      backbone-app:50051
+#   (add)      app webapp               <webapp-container>:80
+#   bucket     file serving             mode A → minio, mode B → service
+#   s3         raw MinIO                minio:9000
+#   grafana    dashboards               grafana:3000
+#   status     uptime-kuma              uptime-kuma:3001
+#
+# IMPORTANT: site addresses MUST use the parse-time `{$VAR}` form, NOT the
+# runtime `{env.VAR}` form. Caddy resolves site addresses at config-parse
+# time, so the runtime placeholder leaves the literal string in the address
+# and TLS provisioning fails.
+
+{
+    email {$ACME_EMAIL}
+    servers {
+        protocols h1 h2 h3
+    }
+}
+
+# ─── REST API ──────────────────────────────────────────────────────────
+api.{$DOMAIN} {
+    encode zstd gzip
+    reverse_proxy backbone-app:8080
+}
+
+# ─── Bucket: mode A (public fast-path) + mode B (auth-aware redirect) ─
+bucket.{$DOMAIN} {
+    encode zstd gzip
+
+    # Mode A: /public/* → MinIO public bucket, no service hop. The bucket
+    # name is sourced from MINIO_PUBLIC_BUCKET (passed to the caddy container
+    # in compose.yaml) so renaming propagates from .env.prod.
+    handle_path /public/* {
+        rewrite * /{$MINIO_PUBLIC_BUCKET}{uri}
+        reverse_proxy minio:9000
+    }
+
+    # Mode B: everything else → service serving_router at /cdn/<key>.
+    handle {
+        rewrite * /cdn{uri}
+        reverse_proxy backbone-app:8080
+    }
+}
+
+# ─── Raw MinIO (mode C: presigned URLs) ───────────────────────────────
+s3.{$DOMAIN} {
+    reverse_proxy minio:9000
+}
+
+# ─── Grafana (dashboards) ─────────────────────────────────────────────
+# Grafana's own login gates access; consider adding an IP allowlist via
+# `@allowed { remote_ip … }` before public beta if traffic warrants it.
+grafana.{$DOMAIN} {
+    reverse_proxy grafana:3000
+}
+
+# ─── Uptime Kuma (public status page) ─────────────────────────────────
+status.{$DOMAIN} {
+    reverse_proxy uptime-kuma:3001
+}
