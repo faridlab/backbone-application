@@ -1,0 +1,30 @@
+# Production overlay for application.yml
+#
+# Loaded automatically when APP_ENV=prod. Every value below MUST come from
+# the environment — no hardcoded secrets, no dev defaults. Compose stacks
+# fail-fast on missing variables; document each required var in
+# `deployment/.env.prod.example` (or your workspace's equivalent).
+
+server:
+  host: "${HOST:0.0.0.0}"
+  port: "${PORT:8080}"
+
+database:
+  url: "${DATABASE_URL}"
+  max_connections: "${DB_MAX_CONNECTIONS:50}"
+  min_connections: "${DB_MIN_CONNECTIONS:10}"
+  connect_timeout: 30
+  idle_timeout: 600
+  max_lifetime: 1800
+
+logging:
+  level: "${LOG_LEVEL:info}"
+  format: "json"
+
+security:
+  jwt_secret: "${JWT_SECRET}"
+  jwt_algorithm: "${JWT_ALGORITHM:HS256}"
+  jwt_issuer: "${JWT_ISSUER}"
+  jwt_audience: "${JWT_AUDIENCE}"
+  jwt_expiration: "${JWT_EXPIRATION:86400}"
+  cors_origins: "${CORS_ORIGINS}"
