@@ -31,7 +31,7 @@ use backbone_maintenance::{
     admin_toggle_handler, maintenance_middleware, status_handler, MaintenanceConfig,
     MaintenanceState,
 };
-use backbone_observability::audit::audit_middleware;
+use backbone_observability::audit::{audit_middleware, AuditConfig};
 use tokio::net::TcpListener;
 use tower_http::trace::TraceLayer;
 use tracing::{error, info};
@@ -132,7 +132,13 @@ async fn main() -> Result<()> {
         .merge(maintenance_router)
         // Audit logging (innermost — runs after maintenance/cors so the
         // event reflects the actual response status the client sees).
-        .layer(axum::middleware::from_fn(audit_middleware))
+        // `audit_middleware` is stateful (takes `State<Arc<AuditConfig>>`), so it must be
+        // wired with `from_fn_with_state`. `trust_proxy_headers: false` is the safe default
+        // (only enable behind a trusted reverse proxy that sets X-Forwarded-For).
+        .layer(axum::middleware::from_fn_with_state(
+            Arc::new(AuditConfig { trust_proxy_headers: false }),
+            audit_middleware,
+        ))
         // Maintenance gate (outermost — short-circuits before any other
         // layer pays its cost when the system is in maintenance).
         .layer(axum::middleware::from_fn_with_state(
