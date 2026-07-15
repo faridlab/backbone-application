@@ -75,9 +75,14 @@ async fn main() -> Result<()> {
     })?;
     info!("✅ Config loaded");
 
-    // Warn on dev-default values that leak into non-dev environments.
+    // Reject dev-default values that leak into non-dev environments. A placeholder JWT secret is
+    // fatal, not a warning: the tenant guard proves `company_id` from the token signature alone, so a
+    // guessable secret is a cross-tenant breach. Fail at boot, where it is loud and cheap.
     let env = std::env::var("APP_ENV").unwrap_or_else(|_| "dev".to_string());
-    app_config.validate_defaults(&env);
+    app_config.validate_defaults(&env).map_err(|e| {
+        error!("insecure configuration: {e}");
+        anyhow::anyhow!("insecure configuration: {e}")
+    })?;
 
     let database = DatabaseManager::new(&app_config.database)
         .await

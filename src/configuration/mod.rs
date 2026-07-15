@@ -144,42 +144,81 @@ impl AppConfig {
     ///
     /// Currently checks:
     /// - `database.url` for default credentials (`root:password`,
-    ///   `postgres:postgres`).
-    /// - `JWT_SECRET` env var against a known list of placeholder substrings.
+    ///   `postgres:postgres`) — warns.
+    /// - `security.jwt_secret` against a known list of placeholder substrings
+    ///   and a minimum length — **hard error** outside dev.
     ///
     /// Apps with extra surfaces (SMTP, signing keys, etc.) should add their
     /// own checks alongside this one.
-    pub fn validate_defaults(&self, env: &str) {
-        validate_defaults(env, &self.database.url);
+    ///
+    /// # Errors
+    /// Returns `Err` when running outside a dev environment with a JWT secret
+    /// that is a placeholder or too short to be a real key.
+    pub fn validate_defaults(&self, env: &str) -> Result<(), String> {
+        validate_defaults(env, &self.database.url, &self.security.jwt_secret)
     }
 }
 
+/// The shortest secret we accept outside dev. HS256 keys shorter than the hash
+/// output (32 bytes) weaken the MAC, and short secrets are guessable.
+const MIN_JWT_SECRET_LEN: usize = 32;
+
 /// Stateless variant of [`AppConfig::validate_defaults`]. Easier to call
 /// from places that don't hold the full config (e.g. tests, scripts).
-pub fn validate_defaults(env: &str, db_url: &str) {
-    let is_dev = is_dev_env(env);
-    if !is_dev {
-        if db_url.contains("root:password") || db_url.contains("postgres:postgres") {
-            tracing::warn!(
-                "Database URL contains default credentials in '{}' environment. \
-                 Use strong credentials in production.",
-                env
-            );
-        }
-        let jwt_secret = std::env::var("JWT_SECRET").unwrap_or_default();
-        let placeholders = [
-            "change-this",
-            "your-super-secret",
-            "dev-jwt-secret",
-            "not-for-production",
-            "changeme",
-        ];
-        if placeholders.iter().any(|p| jwt_secret.contains(p)) {
-            tracing::warn!(
-                "JWT_SECRET appears to be a placeholder. Set a strong secret for production."
-            );
-        }
+///
+/// The JWT secret is checked against the **resolved config value**, not
+/// `std::env::var("JWT_SECRET")`: the secret can legitimately arrive from the
+/// YAML default, in which case reading the env var sees an empty string and the
+/// check silently passes on a secret nobody set.
+///
+/// A bad secret is fatal rather than a warning because the tenant guard
+/// (`backbone_auth::tenant`) derives `company_id` from the token signature
+/// alone. Anyone who can guess the secret can mint a token for any tenant, so a
+/// placeholder secret in production is a cross-tenant breach, not a lint.
+///
+/// # Errors
+/// Returns `Err` outside dev when the JWT secret is a placeholder or shorter
+/// than [`MIN_JWT_SECRET_LEN`].
+pub fn validate_defaults(env: &str, db_url: &str, jwt_secret: &str) -> Result<(), String> {
+    if is_dev_env(env) {
+        return Ok(());
     }
+
+    if db_url.contains("root:password") || db_url.contains("postgres:postgres") {
+        tracing::warn!(
+            "Database URL contains default credentials in '{}' environment. \
+             Use strong credentials in production.",
+            env
+        );
+    }
+
+    // Substrings, so a placeholder still trips the check when it has been
+    // decorated (`change-me-in-production`, `my-changeme-secret`, ...).
+    let placeholders = [
+        "change-me",
+        "change-this",
+        "changeme",
+        "your-super-secret",
+        "dev-jwt-secret",
+        "not-for-production",
+        "secret",
+    ];
+    let lowered = jwt_secret.to_ascii_lowercase();
+    if let Some(hit) = placeholders.iter().find(|p| lowered.contains(**p)) {
+        return Err(format!(
+            "JWT secret looks like a placeholder (contains '{hit}') in '{env}' environment. \
+             The tenant guard trusts this signature to prove company_id — a guessable secret \
+             lets anyone mint a token for any tenant. Set a strong JWT_SECRET."
+        ));
+    }
+    if jwt_secret.len() < MIN_JWT_SECRET_LEN {
+        return Err(format!(
+            "JWT secret is {} bytes in '{env}' environment; minimum is {MIN_JWT_SECRET_LEN}. \
+             Set a strong JWT_SECRET.",
+            jwt_secret.len()
+        ));
+    }
+    Ok(())
 }
 
 /// `"dev" | "development" | "local"` — case-insensitive.
@@ -259,17 +298,47 @@ mod tests {
         assert!(!is_dev_env("staging"));
     }
 
+    const DEV_DB: &str = "postgres://postgres:postgres@localhost/db";
+    /// 32+ bytes, no placeholder substring.
+    const STRONG_SECRET: &str = "f3a91c7d2b8e45061a9fc3e78d2b415c9e07a6fd";
+
     #[test]
-    fn validate_defaults_is_silent_in_dev() {
-        // Just confirms no panic; the warns themselves are tracing-side
-        // effects that aren't asserted on here.
-        validate_defaults("dev", "postgres://postgres:postgres@localhost/db");
+    fn validate_defaults_accepts_anything_in_dev() {
+        // Dev is deliberately permissive — the skeleton must stay runnable on a
+        // fresh clone with no env set.
+        assert!(validate_defaults("dev", DEV_DB, "change-me-in-production").is_ok());
     }
 
     #[test]
-    fn validate_defaults_runs_in_prod_without_panicking() {
-        std::env::set_var("JWT_SECRET", "change-this-please");
-        validate_defaults("production", "postgres://postgres:postgres@localhost/db");
+    fn validate_defaults_accepts_a_strong_secret_in_prod() {
+        assert!(validate_defaults("production", DEV_DB, STRONG_SECRET).is_ok());
+    }
+
+    #[test]
+    fn the_shipped_default_secret_is_rejected_in_prod() {
+        // Regression: `application.yml` ships `${JWT_SECRET:change-me-in-production}`, and the old
+        // placeholder list ("changeme", "change-this", ...) matched none of it — so the skeleton's own
+        // default sailed through. It must not.
+        let err = validate_defaults("production", DEV_DB, "change-me-in-production")
+            .expect_err("shipped default must be rejected outside dev");
+        assert!(err.contains("placeholder"), "unexpected error: {err}");
+    }
+
+    #[test]
+    fn short_secrets_are_rejected_in_prod() {
+        let err = validate_defaults("production", DEV_DB, "f3a91c7d2b8e4506")
+            .expect_err("a 16-byte secret must be rejected");
+        assert!(err.contains("minimum"), "unexpected error: {err}");
+    }
+
+    #[test]
+    fn validate_defaults_reads_config_not_the_env_var() {
+        // Regression: the check used to read std::env::var("JWT_SECRET"). A secret supplied by the
+        // YAML default left that empty, so the check passed on a secret nobody chose. A strong env
+        // var must not excuse a weak configured value.
+        std::env::set_var("JWT_SECRET", STRONG_SECRET);
+        let result = validate_defaults("production", DEV_DB, "change-me-in-production");
         std::env::remove_var("JWT_SECRET");
+        assert!(result.is_err(), "config value must be what is checked");
     }
 }
