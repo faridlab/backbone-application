@@ -426,9 +426,7 @@ mod tests {
 
     #[test]
     fn test_response_builder() {
-        let builder = ResponseBuilder::new()
-            .with_request_id("test-123".to_string())
-            .unwrap();
+        let builder = ResponseBuilder::new().with_request_id("test-123".to_string());
 
         assert_eq!(builder.request_id, Some("test-123".to_string()));
     }

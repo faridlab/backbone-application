@@ -521,9 +521,11 @@ mod tests {
     #[test]
     fn test_pagination_builder_limits() {
         let params = PaginationParams {
-            page: Some(0), // Should be clamped to 1
+            page: Some(0),    // Should be clamped to 1
             limit: Some(150), // Should be clamped to 100
-            offset: Some(-10), // Should be clamped to 0
+            // No negative `offset` case: the field is `Option<u32>`, so the type already makes a
+            // negative offset unrepresentable — there is nothing to clamp. `offset` is derived from
+            // the clamped page/limit below.
             ..Default::default()
         };
 
