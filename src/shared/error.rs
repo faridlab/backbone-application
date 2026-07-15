@@ -82,7 +82,10 @@ pub enum AppError {
     Uuid(#[from] uuid::Error),
 
     /// Custom errors with status code
-    #[error("Custom error: {0}")]
+    // `{1}` is the message. This used to be `{0}` — the StatusCode — so Display rendered
+    // "Custom error: 400 Bad Request" and dropped the message, silently discarding it anywhere an
+    // AppError was formatted (notably `with_location`, which reformats via Display).
+    #[error("Custom error: {1}")]
     Custom(StatusCode, String),
 }
 
@@ -286,10 +289,19 @@ where
         self.map_err(|e| {
             let app_err = e.into();
             let location = format!("{}:{}", file, line);
-            AppError::custom(
-                app_err.status_code(),
-                format!("{} [{}]", app_err, location),
-            )
+            // Unwrap an existing Custom rather than reformatting it through Display, which would
+            // fold the "Custom error: " prefix into the message — and, when chained after
+            // `with_context`, nest it. Mirrors the same match in `with_context`.
+            match app_err {
+                AppError::Custom(_, ref msg) => AppError::Custom(
+                    app_err.status_code(),
+                    format!("{} [{}]", msg, location),
+                ),
+                _ => AppError::custom(
+                    app_err.status_code(),
+                    format!("{} [{}]", app_err, location),
+                ),
+            }
         })
     }
 
@@ -299,11 +311,14 @@ where
     }
 }
 
-/// Macro for adding error context
+/// Macro for adding error context, stamped with the call site.
+///
+/// Expands to [`ErrorContext::with_full_context`] — `with_context` takes only the
+/// context string, so passing it `file!()`/`line!()` does not compile.
 #[macro_export]
 macro_rules! err_context {
     ($result:expr, $context:expr) => {
-        $result.with_context($context, file!(), line!())
+        $result.with_full_context($context, file!(), line!())
     };
 }
 
