@@ -49,7 +49,10 @@ models:
         description: "Human-readable note for operators"
 
       metadata:
-        type: Metadata
+        # `json`, not the structured `Metadata` shared type: this skeleton has no index.model.yaml
+        # defining shared types, so `type: Metadata` was undefined and failed validation. A standalone
+        # example model uses the inline json form; a real module gets `Metadata` from its index.
+        type: json
         attributes: ["@audit_metadata"]
         description: "Audit metadata (created_at, updated_at, deleted_at, created_by, updated_by, deleted_by)"
 
