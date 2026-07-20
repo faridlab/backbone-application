@@ -84,6 +84,31 @@ async fn main() -> Result<()> {
         anyhow::anyhow!("insecure configuration: {e}")
     })?;
 
+    // Prometheus metrics. backbone-observability spawns a DEDICATED HTTP server
+    // (separate from the app router) — `/metrics` is NOT mounted on the app port,
+    // it lives at http://<host>:{METRICS_PORT}/metrics. The prod stack already
+    // sets METRICS_PORT=9090 and Prometheus scrapes http://<app>:9090/metrics;
+    // without this call that scrape gets connection-refused and dashboards/alerts
+    // silently have no data. The handle must stay alive for the program's lifetime
+    // or the spawned server exits.
+    let metrics_enabled = std::env::var("METRICS_ENABLED")
+        .map(|v| v == "true" || v == "1")
+        .unwrap_or(true);
+    let metrics_port: u16 = std::env::var("METRICS_PORT")
+        .ok()
+        .and_then(|p| p.parse().ok())
+        .unwrap_or(9090);
+    let _metrics_handle = backbone_observability::init_metrics(
+        &backbone_observability::MetricsConfig {
+            enabled: metrics_enabled,
+            exporter: backbone_observability::MetricsExporterType::Prometheus,
+            port: metrics_port,
+        },
+    )?;
+    info!(
+        "✅ Metrics: enabled={metrics_enabled} http://0.0.0.0:{metrics_port}/metrics"
+    );
+
     let database = DatabaseManager::new(&app_config.database)
         .await
         .map_err(|e| {
