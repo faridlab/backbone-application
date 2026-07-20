@@ -150,6 +150,9 @@ services:
     networks: [backend]
     ports:
       - "127.0.0.1:8080:8080"
+      # Prometheus metrics — backbone-observability runs a dedicated /metrics
+      # server (separate from the app) on METRICS_PORT (default 9090).
+      - "127.0.0.1:9090:9090"
 
 volumes:
   pgdata:
