@@ -54,6 +54,18 @@ pub struct DatabaseConfig {
     pub idle_timeout: u64,
     #[serde(default = "default_max_lifetime")]
     pub max_lifetime: u64,
+
+    /// The outbox relay role's connection. The relay drains every tenant's `outbox_events` — it logs in
+    /// as a NOBYPASSRLS role (`metaphor_relay`) that the fence policy admits via `current_user =
+    /// 'metaphor_relay'`. `None` ⇒ no relay (the skeleton default). Create the role with
+    /// `scripts/rls_app_role.sql` and point `RELAY_DATABASE_URL` at it.
+    #[serde(default)]
+    pub relay_url: Option<String>,
+    /// Producer schemas whose `outbox_events` to fence + drain (e.g. `["payment","selling"]`). Drives a
+    /// `backbone_outbox::outbox::migrate` per schema (the `multi_tenant` fence) and a relay runner each.
+    /// Empty ⇒ the outbox path is inactive (the skeleton default).
+    #[serde(default)]
+    pub outbox_schemas: Vec<String>,
 }
 
 fn default_max_conn() -> u32 { 20 }

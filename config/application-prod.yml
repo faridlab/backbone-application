@@ -16,6 +16,10 @@ database:
   connect_timeout: 30
   idle_timeout: 600
   max_lifetime: 1800
+  # Outbox relay (opt-in, ADR-0011). Point RELAY_DATABASE_URL at the `metaphor_relay` role created by
+  # scripts/rls_app_role.sql, and list the producer schemas to fence + drain. Empty ⇒ outbox inactive.
+  relay_url: "${RELAY_DATABASE_URL:}"
+  outbox_schemas: []
 
 logging:
   level: "${LOG_LEVEL:info}"

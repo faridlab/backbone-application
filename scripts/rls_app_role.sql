@@ -11,12 +11,19 @@
 -- schemas and tables:
 --
 --     psql "$ADMIN_DATABASE_URL" \
---         -v app_role=metaphor_app -v app_password='change-me' -v owner_role=postgres \
+--         -v app_role=metaphor_app -v app_password='change-me' \
+--         -v relay_role=metaphor_relay -v relay_password='change-me' \
+--         -v owner_role=postgres \
 --         -f scripts/rls_app_role.sql
 --
 -- Then point the service at the app role instead of the superuser:
 --
 --     DATABASE_URL=postgresql://metaphor_app:change-me@host:5432/backbone_app
+--
+-- And point the outbox RELAY at its own role (it drains every tenant's outbox_events — see the
+-- `OR current_user = 'metaphor_relay'` bypass in backbone_outbox's fence policy):
+--
+--     RELAY_DATABASE_URL=postgresql://metaphor_relay:change-me@host:5432/backbone_app
 --
 -- Idempotent: safe to re-run after adding modules/tables (re-grants current tables and refreshes
 -- default privileges for future ones).
@@ -39,6 +46,34 @@ SELECT format('ALTER ROLE %I LOGIN PASSWORD %L NOSUPERUSER NOBYPASSRLS', :'app_r
 \gexec
 
 SELECT format('GRANT CONNECT ON DATABASE %I TO %I', current_database(), :'app_role')
+\gexec
+
+-- 1b. The outbox RELAY login role. The relay drains outbox_events across ALL tenants (it is cross-tenant
+--     by nature). Like the app role it is NOSUPERUSER + NOBYPASSRLS — it gains cross-tenant visibility
+--     ONLY via the `OR current_user = 'metaphor_relay'` clause in backbone_outbox's fence policy, NOT via
+--     a bypass attribute, so every OTHER table's fence still applies to it. Least privilege: it touches
+--     outbox_events only. Re-run this script after adding a module so its outbox_events is granted.
+SELECT format('CREATE ROLE %I LOGIN PASSWORD %L NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE',
+              :'relay_role', :'relay_password')
+WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = :'relay_role')
+\gexec
+
+SELECT format('ALTER ROLE %I LOGIN PASSWORD %L NOSUPERUSER NOBYPASSRLS', :'relay_role', :'relay_password')
+\gexec
+
+SELECT format('GRANT CONNECT ON DATABASE %I TO %I', current_database(), :'relay_role')
+\gexec
+
+-- USAGE on each producer schema + SELECT/UPDATE on outbox_events only (read a batch, mark published_at).
+SELECT format('GRANT USAGE ON SCHEMA %I TO %I', nspname, :'relay_role')
+FROM pg_namespace WHERE nspname NOT LIKE 'pg\_%' AND nspname <> 'information_schema'
+\gexec
+
+SELECT format('GRANT SELECT, UPDATE ON %I.outbox_events TO %I', nspname, :'relay_role')
+FROM pg_namespace n
+WHERE n.nspname NOT LIKE 'pg\_%' AND n.nspname <> 'information_schema'
+  AND EXISTS (SELECT 1 FROM information_schema.tables t
+              WHERE t.table_schema = n.nspname AND t.table_name = 'outbox_events')
 \gexec
 
 -- 2. USAGE + DML on every non-system schema. Reads/writes are still fenced by RLS per row; these

@@ -134,6 +134,72 @@ async fn main() -> Result<()> {
         migration_result.total_migrations, migration_result.total_pending
     );
 
+    // Outbox relay (ADR-0011): fence each producer schema's outbox_events and drain it logged in as the
+    // `metaphor_relay` role (a NOBYPASSRLS login the fence policy admits via `current_user =
+    // 'metaphor_relay'`). The fence and the relay ship TOGETHER so a fenced outbox never silently
+    // stalls delivery. Opt-in: inactive unless database.relay_url + outbox_schemas are configured;
+    // create the role with scripts/rls_app_role.sql and point RELAY_DATABASE_URL at it.
+    if app_config.database.outbox_schemas.is_empty() {
+        tracing::info!(
+            "outbox relay inactive — set database.relay_url + outbox_schemas (and run scripts/rls_app_role.sql) to enable"
+        );
+    } else if let Some(relay_url) = app_config
+        .database
+        .relay_url
+        .as_ref()
+        .map(String::as_str)
+        .filter(|u| !u.is_empty())
+    {
+        match sqlx::postgres::PgPoolOptions::new().max_connections(4).connect(relay_url).await {
+            Ok(relay_pool) => {
+                // The relay drains onto the in-proc integration bus. The skeleton registers a logging
+                // handler by default so drained events are visible; real apps register domain handlers
+                // (and/or swap the bus for a broker). The outbox record's `id` IS the envelope id —
+                // preserve it (NOT a fresh uuid) so consumer-side inbox dedup aligns end-to-end.
+                let bus = backbone_messaging::IntegrationEventBus::new();
+                bus.register_handler(Arc::new(backbone_messaging::IntegrationLoggingHandler::all()))
+                    .await;
+                for schema in &app_config.database.outbox_schemas {
+                    if let Err(e) = backbone_outbox::outbox::migrate(database.pool(), schema).await {
+                        tracing::error!("outbox migrate failed for '{schema}': {e} — relay for '{schema}' skipped");
+                        continue;
+                    }
+                    let runner_schema = schema.clone();
+                    let runner_bus = bus.clone();
+                    let pool = relay_pool.clone();
+                    let cfg = backbone_outbox::runner::RelayConfig::new(schema.clone());
+                    tokio::spawn(backbone_outbox::runner::run(pool, cfg, move |rec| {
+                        let bus = runner_bus.clone();
+                        let schema = runner_schema.clone();
+                        async move {
+                            let envelope = backbone_messaging::IntegrationEventEnvelope {
+                                id: rec.id.to_string(),
+                                event_type: rec.event_type.clone(),
+                                source_context: rec.aggregate_type.clone(),
+                                aggregate_id: rec.aggregate_id.clone(),
+                                occurred_at: rec.occurred_at,
+                                published_at: chrono::Utc::now(),
+                                version: rec.version as u32,
+                                correlation_id: rec.correlation_id.clone(),
+                                causation_id: rec.causation_id.clone(),
+                                payload: rec.payload.clone(),
+                            };
+                            bus.publish_envelope(envelope)
+                                .await
+                                .map_err(|e| backbone_outbox::OutboxError::Publish(format!("{schema}: {e}")))
+                        }
+                    }, async {
+                        let _ = tokio::signal::ctrl_c().await;
+                    }));
+                    info!("✅ Outbox relay started for schema '{schema}'");
+                }
+            }
+            Err(e) => tracing::error!("outbox relay pool failed to connect (relay disabled): {e}"),
+        }
+    } else {
+        tracing::warn!("outbox_schemas configured but database.relay_url is empty — no relay started");
+    }
+
     let health_checker = Arc::new(HealthChecker::new(HealthConfig::default()));
 
     let _state = Arc::new(AppState::new(
