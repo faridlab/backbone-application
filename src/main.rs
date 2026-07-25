@@ -36,6 +36,7 @@ use tokio::net::TcpListener;
 use tower_http::trace::TraceLayer;
 use tracing::{error, info};
 
+mod composition;
 mod configuration;
 mod infrastructure;
 mod middleware;
@@ -209,6 +210,27 @@ async fn main() -> Result<()> {
         HealthChecker::new(HealthConfig::default()),
     ));
 
+    // Compose the domain modules — wire their event seams (gateway → payment → billing).
+    // The gateway's settle → creates a PaymentEntry; payment's settle → billing drawdown;
+    // a refund → reverses the chain. Each event fires through a sink the composition implements.
+    use composition::{CompositionGatewaySink, CompositionGlSink, CompositionPaymentSink};
+    let composition_gl = Arc::new(CompositionGlSink);
+    let payment_write = Arc::new(
+        backbone_payment::application::service::PaymentWriteService::with_sink(
+            database.pool().clone(),
+            Arc::new(CompositionPaymentSink),
+        ),
+    );
+    let gateway_sink = Arc::new(CompositionGatewaySink {
+        payments: payment_write.clone(),
+        gl: composition_gl.clone(),
+    });
+    let _gateway_write = backbone_payment_gateway::application::service::GatewayWriteService::with_sink(
+        database.pool().clone(),
+        gateway_sink,
+    );
+    info!("✅ Domain modules composed (payment + payment-gateway seams wired)");
+
     // Maintenance gate. `MaintenanceConfig::default()` is "off" so the
     // skeleton starts open. Real services should populate this from yaml.
     let maintenance_state = MaintenanceState::from_config(&MaintenanceConfig::default());
@@ -226,6 +248,21 @@ async fn main() -> Result<()> {
     let mut app = Router::new()
         .merge(health_routes(health_checker))
         .merge(maintenance_router)
+        // Domain module CRUD routers — the composed HTTP surface.
+        .merge(
+            backbone_payment::PaymentModule::builder()
+                .with_database(database.pool().clone())
+                .build()
+                .expect("payment module")
+                .all_crud_routes(),
+        )
+        .merge(
+            backbone_payment_gateway::PaymentGatewayModule::builder()
+                .with_database(database.pool().clone())
+                .build()
+                .expect("gateway module")
+                .all_crud_routes(),
+        )
         // Audit logging (innermost — runs after maintenance/cors so the
         // event reflects the actual response status the client sees).
         // `audit_middleware` is stateful (takes `State<Arc<AuditConfig>>`), so it must be
