@@ -32,12 +32,6 @@ backbone-rate-limit    = { git = "https://github.com/faridlab/backbone-framework
 backbone-search        = { git = "https://github.com/faridlab/backbone-framework", tag = "v2.7.0" }
 backbone-storage       = { git = "https://github.com/faridlab/backbone-framework", tag = "v2.7.0" }
 
-# Domain modules — composed into this service (workspace path deps).
-backbone-payment         = { path = "../backbone-payment" }
-backbone-payment-gateway = { path = "../backbone-payment-gateway" }
-backbone-billing         = { path = "../backbone-billing" }
-backbone-accounting      = { path = "../backbone-accounting" }
-
 # External dependencies — versions match what monorepo-backbone uses today.
 tokio = { version = "1.0", features = ["full"] }
 axum = { version = "0.7", features = ["macros"] }
@@ -65,10 +59,9 @@ chrono = { version = "0.4", features = ["serde"] }
 
 async-trait = "0.1"
 mime = "0.3"
-reqwest = { version = "0.11", features = ["json", "rustls-tls"] }
+reqwest = { version = "0.11", features = ["json"] }
 jsonwebtoken = "9"
 validator = { version = "0.18", features = ["derive"] }
-rust_decimal = { version = "1.36", features = ["serde"] }
 
 [dev-dependencies]
 tempfile = "3.0"
