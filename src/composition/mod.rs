@@ -10,6 +10,8 @@
 //! backbone-accounting's `PostingService`. Here it traces (the skeleton's default — real apps inject
 //! the accounting adapter).
 
+pub mod providers;
+
 use std::sync::Arc;
 
 use uuid::Uuid;
