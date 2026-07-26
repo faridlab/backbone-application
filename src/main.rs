@@ -226,6 +226,11 @@ async fn main() -> Result<()> {
     let mut app = Router::new()
         .merge(health_routes(health_checker))
         .merge(maintenance_router)
+        // The PgPool as an Extension so the `company_auth` middleware (ADR-0008) can establish a
+        // request-dedicated connection once domain modules are mounted and the app role is flipped.
+        // Without this layer, `company_auth` falls back to per-statement scoping and the hand-written
+        // write-service paths fail closed under the non-super role.
+        .layer(axum::Extension(database.pool().clone()))
         // Domain module routers merge HERE — see docs/composition-recipe.md for the pattern:
         //   .merge(payment_module.all_crud_routes())
         //   .merge(gateway_module.all_crud_routes())

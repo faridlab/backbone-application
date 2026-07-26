@@ -64,19 +64,29 @@ pub struct CompositionGatewaySink {
 impl GatewayEventSink for CompositionGatewaySink {
     fn publish(&self, event: GatewayEvent) {
         let this = self.clone();
+        // Establish the tenant scope for this fire-and-forget task. There is no HTTP request
+        // connection here (it's a spawned consumer), so without `with_company_scope` the payment
+        // writes below would fail closed under the non-super app role (ADR-0008). The event carries
+        // the company; bind it before the writes run. Required before flipping the app-role switch.
+        let company_id = match &event {
+            GatewayEvent::GatewayTransactionSettled(s) => s.company_id,
+            GatewayEvent::GatewayTransactionRefunded(s) => s.company_id,
+        };
         tokio::spawn(async move {
-            match event {
-                GatewayEvent::GatewayTransactionSettled(s) => {
-                    if let Err(e) = this.on_settled(&s).await {
-                        tracing::error!(target: "composition.gateway", error = %e, "failed to create PaymentEntry from gateway settle");
+            let _ = backbone_orm::company_scope::with_company_scope(Some(company_id), async move {
+                match event {
+                    GatewayEvent::GatewayTransactionSettled(s) => {
+                        if let Err(e) = this.on_settled(&s).await {
+                            tracing::error!(target: "composition.gateway", error = %e, "failed to create PaymentEntry from gateway settle");
+                        }
+                    }
+                    GatewayEvent::GatewayTransactionRefunded(s) => {
+                        if let Err(e) = this.on_refunded(&s).await {
+                            tracing::error!(target: "composition.gateway", error = %e, "failed to reverse PaymentEntry from gateway refund");
+                        }
                     }
                 }
-                GatewayEvent::GatewayTransactionRefunded(s) => {
-                    if let Err(e) = this.on_refunded(&s).await {
-                        tracing::error!(target: "composition.gateway", error = %e, "failed to reverse PaymentEntry from gateway refund");
-                    }
-                }
-            }
+            }).await;
         });
     }
 }
