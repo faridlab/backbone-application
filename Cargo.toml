@@ -32,6 +32,10 @@ backbone-rate-limit    = { git = "https://github.com/faridlab/backbone-framework
 backbone-search        = { git = "https://github.com/faridlab/backbone-framework", tag = "v2.7.0" }
 backbone-storage       = { git = "https://github.com/faridlab/backbone-framework", tag = "v2.7.0" }
 
+# Domain modules composed into this app (path deps — workspace siblings, not framework crates).
+backbone-tax           = { path = "../backbone-tax" }
+backbone-billing-tax   = { path = "../backbone-billing-tax" }   # the billing→tax outbox dispatcher (+ backbone-billing transitively)
+
 # External dependencies — versions match what monorepo-backbone uses today.
 tokio = { version = "1.0", features = ["full"] }
 axum = { version = "0.7", features = ["macros"] }
@@ -87,3 +91,4 @@ backbone-queue         = { path = "../backbone-framework/backbone-queue" }
 backbone-rate-limit    = { path = "../backbone-framework/backbone-rate-limit" }
 backbone-search        = { path = "../backbone-framework/backbone-search" }
 backbone-storage       = { path = "../backbone-framework/backbone-storage" }
+backbone-outbox        = { path = "../backbone-framework/backbone-outbox" }   # unify outbox: app v2.7.4 + dispatcher v2.7.6 → local HEAD

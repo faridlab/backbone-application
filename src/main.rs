@@ -200,6 +200,24 @@ async fn main() -> Result<()> {
         tracing::warn!("outbox_schemas configured but database.relay_url is empty — no relay started");
     }
 
+    // Billing→tax audit-mirror dispatcher (a sibling of the outbox relay above). Drains
+    // billing.outbox_events → tax.record_tax_transaction / void_for_invoice.
+    // NOTE: "billing" must NOT be in database.outbox_schemas — that schema is drained HERE, not by
+    // the bus relay above, or the two double-drain the same rows.
+    let tax_module = backbone_tax::TaxModule::builder()
+        .with_database(database.pool().clone())
+        .build()?;
+    backbone_outbox::outbox::migrate(database.pool(), "billing").await?;
+    let dispatcher_pool = database.pool().clone();
+    let dispatcher_efaktur = tax_module.efaktur_service.clone();
+    tokio::spawn(backbone_billing_tax::run_dispatcher(
+        dispatcher_pool,
+        "billing",
+        dispatcher_efaktur,
+        async { let _ = tokio::signal::ctrl_c().await; },
+    ));
+    info!("✅ billing→tax dispatcher started (draining billing.outbox_events)");
+
     let health_checker = Arc::new(HealthChecker::new(HealthConfig::default()));
 
     let _state = Arc::new(AppState::new(
