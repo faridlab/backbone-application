@@ -37,12 +37,26 @@ The app's tenant boundary is **Postgres Row-Level Security** plus a **verified J
   (fail-closed). This is the exact cross-tenant read fence.
 - **`company_auth` gate** — no token → **401**; bad token → **401**; valid JWT → handler reached.
 
-## Known follow-up — blocks full-app boot as `metaphor_app`
+## Startup DDL runs on an owner pool (`ADMIN_DATABASE_URL`)
 
-The billing→tax dispatcher runs `backbone_outbox::outbox::migrate(pool, "billing")` on the app's
-**runtime pool** at startup. That migrate does owner-level DDL (`CREATE SCHEMA`, `CREATE TABLE`, and
-owner-only index/trigger work — `must be owner of table outbox_events`) that a non-owner role cannot
-perform. So the full app **cannot boot as `metaphor_app`** until that migrate is moved to an
-owner/admin connection (or guarded to a no-op when the schema already exists). This is a
-skeleton-wide concern, not asset-specific. Until it lands, the verified-principal + RLS fence is
-proven at the module + DB level (above), while the dev app still boots as the superuser.
+The billing→tax dispatcher's `outbox::migrate` (and the module `MigrationManager`, and the per-schema
+outbox migrates) do **owner-level DDL** — `CREATE SCHEMA`/`TABLE` and `ENABLE`/`FORCE ROW LEVEL
+SECURITY` + `CREATE POLICY`, which require the table owner and cannot be granted to a non-owner role.
+So the app runs all startup schema-DDL on a separate **admin/owner pool** sourced from
+`ADMIN_DATABASE_URL`; the runtime `DATABASE_URL` (the `metaphor_app` role) is used only for fenced
+runtime work. Dev (single-role, no `ADMIN_DATABASE_URL`) falls back to the runtime pool.
+
+```bash
+DATABASE_URL=postgresql://metaphor_app:<strong>@host/db          # runtime (NOSUPERUSER NOBYPASSRLS)
+ADMIN_DATABASE_URL=postgresql://postgres:<strong>@host/db        # startup DDL only (owner)
+```
+
+## What's proven (2026-07-30, full app under `metaphor_app`)
+
+The app boots as `metaphor_app` (with `ADMIN_DATABASE_URL` for startup DDL) and the fence holds
+**live through the HTTP layer**:
+
+- A's token → `POST /assets/register` → **201** (own-tenant create works under the non-super role).
+- **B's token → `POST /assets/{A's id}/activate` → 404** (`load_asset` scopes to B → A's asset
+  `NotFound`); A's asset stays `draft` — the cross-tenant write is refused, nothing changed.
+- Plus the DB-level probe: own tenant → 1 row; other tenant → 0 rows; no scope → 0 rows.

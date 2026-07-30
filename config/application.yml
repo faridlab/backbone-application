@@ -18,6 +18,10 @@ database:
   # Outbox relay (opt-in, ADR-0011). Point RELAY_DATABASE_URL at the `metaphor_relay` role created by
   # scripts/rls_app_role.sql, and list the producer schemas to fence + drain. Empty ⇒ outbox inactive.
   relay_url: "${RELAY_DATABASE_URL:}"
+  # OWNER/admin connection for startup schema-DDL (module migrations + outbox migrate). Set this to a
+  # superuser/owner URL when the runtime `url` is the least-privilege `metaphor_app` role, so the app
+  # can still apply owner-level DDL at boot. Empty ⇒ startup DDL runs on the runtime `url` (dev).
+  admin_url: "${ADMIN_DATABASE_URL:}"
   outbox_schemas: []
 
 logging:

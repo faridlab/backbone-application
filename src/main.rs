@@ -128,7 +128,28 @@ async fn main() -> Result<()> {
         tracing::warn!("Pool prewarm failed (continuing): {e}");
     }
 
-    let migration_manager = MigrationManager::new(database.pool().clone());
+    // Startup schema-DDL (module migrations + the outbox `migrate`) is OWNER-level — CREATE SCHEMA/
+    // TABLE and ENABLE/FORCE ROW LEVEL SECURITY + CREATE POLICY require the table owner, which the
+    // least-privilege runtime role (`metaphor_app`, NOSUPERUSER NOBYPASSRLS) cannot do. When an
+    // admin/owner URL is configured, run that DDL on a separate owner pool so the runtime `url` stays
+    // non-privileged. Falls back to the runtime pool for the dev single-role case.
+    // See docs/tenant-isolation-runbook.md.
+    let admin_pool = match app_config.database.admin_url.as_deref().filter(|u| !u.is_empty()) {
+        Some(url) => match sqlx::PgPool::connect(url).await {
+            Ok(p) => {
+                info!("admin pool connected for startup schema-DDL (owner role)");
+                Some(p)
+            }
+            Err(e) => {
+                tracing::warn!(error = %e, "admin_url set but connect failed; startup DDL falls back to the runtime pool");
+                None
+            }
+        },
+        None => None,
+    };
+    let ddl_pool = admin_pool.as_ref().unwrap_or_else(|| database.pool());
+
+    let migration_manager = MigrationManager::new(ddl_pool.clone());
     let migration_result = migration_manager
         .migrate()
         .await
@@ -164,7 +185,7 @@ async fn main() -> Result<()> {
                 bus.register_handler(Arc::new(backbone_messaging::IntegrationLoggingHandler::all()))
                     .await;
                 for schema in &app_config.database.outbox_schemas {
-                    if let Err(e) = backbone_outbox::outbox::migrate(database.pool(), schema).await {
+                    if let Err(e) = backbone_outbox::outbox::migrate(ddl_pool, schema).await {
                         tracing::error!("outbox migrate failed for '{schema}': {e} — relay for '{schema}' skipped");
                         continue;
                     }
@@ -211,7 +232,7 @@ async fn main() -> Result<()> {
     let tax_module = backbone_tax::TaxModule::builder()
         .with_database(database.pool().clone())
         .build()?;
-    backbone_outbox::outbox::migrate(database.pool(), "billing").await?;
+    backbone_outbox::outbox::migrate(ddl_pool, "billing").await?;
     let dispatcher_pool = database.pool().clone();
     let dispatcher_efaktur = tax_module.efaktur_service.clone();
     tokio::spawn(backbone_billing_tax::run_dispatcher(

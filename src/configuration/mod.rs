@@ -55,6 +55,14 @@ pub struct DatabaseConfig {
     #[serde(default = "default_max_lifetime")]
     pub max_lifetime: u64,
 
+    /// The OWNER/admin role's connection, used ONLY for startup schema-DDL (module migrations + the
+    /// outbox `migrate`, which does owner-level `CREATE`/`ENABLE ROW LEVEL SECURITY`/`CREATE POLICY` a
+    /// non-owner role cannot do). When set, the runtime `url` connects as the least-privilege
+    /// `metaphor_app` (NOSUPERUSER NOBYPASSRLS) and this pool runs the DDL as the owner. `None`/empty ⇒
+    /// startup DDL runs on the runtime pool (the dev single-role case). Set via `ADMIN_DATABASE_URL`.
+    #[serde(default)]
+    pub admin_url: Option<String>,
+
     /// The outbox relay role's connection. The relay drains every tenant's `outbox_events` — it logs in
     /// as a NOBYPASSRLS role (`metaphor_relay`) that the fence policy admits via `current_user =
     /// 'metaphor_relay'`. `None` ⇒ no relay (the skeleton default). Create the role with
