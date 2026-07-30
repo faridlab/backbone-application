@@ -35,6 +35,8 @@ backbone-storage       = { git = "https://github.com/faridlab/backbone-framework
 # Domain modules composed into this app (path deps — workspace siblings, not framework crates).
 backbone-tax           = { path = "../backbone-tax" }
 backbone-billing-tax   = { path = "../backbone-billing-tax" }   # the billing→tax outbox dispatcher (+ backbone-billing transitively)
+backbone-asset         = { path = "../backbone-asset" }          # fixed-asset register + GL-backed lifecycle (mounted with a real GlPostSink)
+backbone-accounting    = { path = "../backbone-accounting" }     # the ledger the asset lifecycle posts to
 
 # External dependencies — versions match what monorepo-backbone uses today.
 tokio = { version = "1.0", features = ["full"] }
@@ -60,6 +62,7 @@ dotenvy = "0.15"
 
 uuid = { version = "1.0", features = ["v4", "serde"] }
 chrono = { version = "0.4", features = ["serde"] }
+rust_decimal = { version = "1.36", features = ["serde"] }
 
 async-trait = "0.1"
 mime = "0.3"

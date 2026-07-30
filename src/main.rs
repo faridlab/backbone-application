@@ -36,11 +36,13 @@ use tokio::net::TcpListener;
 use tower_http::trace::TraceLayer;
 use tracing::{error, info};
 
+mod asset_gl_sink;
 mod configuration;
 mod infrastructure;
 mod middleware;
 mod shared;
 
+use asset_gl_sink::AssetAccountingGlSink;
 use configuration::AppConfig;
 use infrastructure::database::migrations::MigrationManager;
 use infrastructure::database::DatabaseManager;
@@ -218,6 +220,17 @@ async fn main() -> Result<()> {
     ));
     info!("✅ billing→tax dispatcher started (draining billing.outbox_events)");
 
+    // backbone-asset — the fixed-asset register. Its lifecycle (register/activate/depreciate/dispose) is
+    // the only path that may change financial state, and it posts through a REAL GlPostSink into
+    // backbone-accounting's ledger (the financial tables are read-only by default via all_crud_routes).
+    let asset_gl: Arc<dyn backbone_asset::application::service::GlPostSink> =
+        Arc::new(AssetAccountingGlSink::new(database.pool().clone()));
+    let asset_module = backbone_asset::AssetsModule::builder()
+        .with_database(database.pool().clone())
+        .with_gl_sink(asset_gl)
+        .build()?;
+    info!("✅ backbone-asset module mounted (lifecycle verbs post to accounting)");
+
     let health_checker = Arc::new(HealthChecker::new(HealthConfig::default()));
 
     let _state = Arc::new(AppState::new(
@@ -244,6 +257,9 @@ async fn main() -> Result<()> {
     let mut app = Router::new()
         .merge(health_routes(health_checker))
         .merge(maintenance_router)
+        // backbone-asset: read-only financial tables + the validated GL-backed lifecycle verbs.
+        .merge(asset_module.all_crud_routes())
+        .merge(asset_module.lifecycle_routes())
         // The PgPool as an Extension so the `company_auth` middleware (ADR-0008) can establish a
         // request-dedicated connection once domain modules are mounted and the app role is flipped.
         // Without this layer, `company_auth` falls back to per-statement scoping and the hand-written
