@@ -245,6 +245,32 @@ async fn main() -> Result<()> {
         .route_layer(from_fn_with_state(verifier, company_auth));
     info!("✅ backbone-asset mounted behind company_auth (lifecycle verbs post to accounting)");
 
+    // Scheduled depreciation job (council ops-ux-security-readiness #5b): a background sweep that posts
+    // every asset's due depreciation across ALL tenants. Idempotent (each period posts once), so the
+    // hourly interval is safe to repeat. The job has no caller principal — it enumerates via the
+    // `asset.due_depreciation_assets` SECURITY DEFINER function (bypasses RLS) and `run_due_depreciation`
+    // re-scopes per asset for the writes. Matches the app's existing tokio::spawn background-task pattern.
+    let dep_pool = database.pool().clone();
+    let dep_gl = Arc::new(AssetAccountingGlSink::new(dep_pool.clone()));
+    tokio::spawn(async move {
+        let write = backbone_asset::application::service::AssetWriteService::new(dep_pool);
+        let sink = backbone_asset::application::service::LoggingSink;
+        let mut tick = tokio::time::interval(std::time::Duration::from_secs(3600));
+        loop {
+            tick.tick().await;
+            match write.run_due_depreciation(chrono::Utc::now(), dep_gl.as_ref(), &sink).await {
+                Ok(s) if s.periods_posted > 0 => info!(
+                    target: "job.asset_depreciation",
+                    assets = s.assets_depreciated, periods = s.periods_posted, fully = s.fully_depreciated,
+                    "scheduled depreciation posted"
+                ),
+                Ok(_) => { /* nothing due this tick — quiet */ }
+                Err(e) => error!(target: "job.asset_depreciation", error = %e, "scheduled depreciation failed"),
+            }
+        }
+    });
+    info!("✅ scheduled depreciation job started (hourly sweep, idempotent)");
+
     let health_checker = Arc::new(HealthChecker::new(HealthConfig::default()));
 
     let _state = Arc::new(AppState::new(
