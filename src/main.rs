@@ -32,6 +32,8 @@ use backbone_maintenance::{
     MaintenanceState,
 };
 use backbone_observability::audit::{audit_middleware, AuditConfig};
+use axum::middleware::from_fn_with_state;
+use backbone_auth::company::{company_auth, CompanyVerifier};
 use tokio::net::TcpListener;
 use tower_http::trace::TraceLayer;
 use tracing::{error, info};
@@ -229,7 +231,19 @@ async fn main() -> Result<()> {
         .with_database(database.pool().clone())
         .with_gl_sink(asset_gl)
         .build()?;
-    info!("✅ backbone-asset module mounted (lifecycle verbs post to accounting)");
+
+    // Tenant boundary (council ops-ux-security-readiness, move #2): every asset route — reads AND the
+    // validated lifecycle verbs — runs behind `company_auth`. It proves the caller's company from the
+    // signed JWT (`CompanyContext`) and binds it onto a request-dedicated connection. The lifecycle
+    // handlers source `company_id` from that context (never the request body), so the cross-tenant
+    // write primitive is closed. MUST be paired with a non-superuser DB role
+    // (`scripts/rls_app_role.sql` → `metaphor_app`) so the RLS fence actually binds.
+    let verifier = CompanyVerifier::hs256(app_config.security.jwt_secret.as_bytes());
+    let asset_routes = asset_module
+        .read_only_routes()
+        .merge(asset_module.lifecycle_routes())
+        .route_layer(from_fn_with_state(verifier, company_auth));
+    info!("✅ backbone-asset mounted behind company_auth (lifecycle verbs post to accounting)");
 
     let health_checker = Arc::new(HealthChecker::new(HealthConfig::default()));
 
@@ -257,9 +271,9 @@ async fn main() -> Result<()> {
     let mut app = Router::new()
         .merge(health_routes(health_checker))
         .merge(maintenance_router)
-        // backbone-asset: read-only financial tables + the validated GL-backed lifecycle verbs.
-        .merge(asset_module.read_only_routes())
-        .merge(asset_module.lifecycle_routes())
+        // backbone-asset: read-only financial tables + the validated GL-backed lifecycle verbs,
+        // both behind company_auth (the tenant boundary — see `asset_routes` above).
+        .merge(asset_routes)
         // The PgPool as an Extension so the `company_auth` middleware (ADR-0008) can establish a
         // request-dedicated connection once domain modules are mounted and the app role is flipped.
         // Without this layer, `company_auth` falls back to per-statement scoping and the hand-written
