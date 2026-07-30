@@ -258,7 +258,7 @@ async fn main() -> Result<()> {
         .merge(health_routes(health_checker))
         .merge(maintenance_router)
         // backbone-asset: read-only financial tables + the validated GL-backed lifecycle verbs.
-        .merge(asset_module.all_crud_routes())
+        .merge(asset_module.read_only_routes())
         .merge(asset_module.lifecycle_routes())
         // The PgPool as an Extension so the `company_auth` middleware (ADR-0008) can establish a
         // request-dedicated connection once domain modules are mounted and the app role is flipped.
