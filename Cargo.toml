@@ -1,6 +1,6 @@
 [package]
 name = "backbone-app"
-version = "0.6.6"
+version = "0.6.7"
 edition = "2021"
 description = "Minimal Backbone application skeleton — runnable starting point for any Backbone-based service"
 authors = ["Farid Hidayat"]
@@ -11,25 +11,25 @@ name = "backbone-app"
 path = "src/main.rs"
 
 [dependencies]
-backbone-auth          = { git = "https://github.com/faridlab/backbone-framework", tag = "v2.7.27", features = ["axum"] }
-backbone-authorization = { git = "https://github.com/faridlab/backbone-framework", tag = "v2.7.27" }
-backbone-cache         = { git = "https://github.com/faridlab/backbone-framework", tag = "v2.7.27" }
-backbone-core          = { git = "https://github.com/faridlab/backbone-framework", tag = "v2.7.27" }
-backbone-email         = { git = "https://github.com/faridlab/backbone-framework", tag = "v2.7.27" }
-backbone-graphql       = { git = "https://github.com/faridlab/backbone-framework", tag = "v2.7.27" }
-backbone-health        = { git = "https://github.com/faridlab/backbone-framework", tag = "v2.7.27", features = ["cli"] }
-backbone-jobs          = { git = "https://github.com/faridlab/backbone-framework", tag = "v2.7.27" }
-backbone-maintenance   = { git = "https://github.com/faridlab/backbone-framework", tag = "v2.7.27" }
-backbone-messaging     = { git = "https://github.com/faridlab/backbone-framework", tag = "v2.7.27" }
-backbone-observability = { git = "https://github.com/faridlab/backbone-framework", tag = "v2.7.27", features = ["prometheus-metrics", "otel-tracing", "middleware", "audit"] }
-backbone-orm           = { git = "https://github.com/faridlab/backbone-framework", tag = "v2.7.27" }
+backbone-auth          = { git = "https://github.com/faridlab/backbone-framework", tag = "v2.7.28", features = ["axum"] }
+backbone-authorization = { git = "https://github.com/faridlab/backbone-framework", tag = "v2.7.28" }
+backbone-cache         = { git = "https://github.com/faridlab/backbone-framework", tag = "v2.7.28" }
+backbone-core          = { git = "https://github.com/faridlab/backbone-framework", tag = "v2.7.28" }
+backbone-email         = { git = "https://github.com/faridlab/backbone-framework", tag = "v2.7.28" }
+backbone-graphql       = { git = "https://github.com/faridlab/backbone-framework", tag = "v2.7.28" }
+backbone-health        = { git = "https://github.com/faridlab/backbone-framework", tag = "v2.7.28", features = ["cli"] }
+backbone-jobs          = { git = "https://github.com/faridlab/backbone-framework", tag = "v2.7.28" }
+backbone-maintenance   = { git = "https://github.com/faridlab/backbone-framework", tag = "v2.7.28" }
+backbone-messaging     = { git = "https://github.com/faridlab/backbone-framework", tag = "v2.7.28" }
+backbone-observability = { git = "https://github.com/faridlab/backbone-framework", tag = "v2.7.28", features = ["prometheus-metrics", "otel-tracing", "middleware", "audit"] }
+backbone-orm           = { git = "https://github.com/faridlab/backbone-framework", tag = "v2.7.28" }
 # Outbox relay + the multi_tenant company-RLS fence (ADR-0011). All framework crates pin the SAME
 # tag so a build with the [patch] block below stripped still resolves one consistent graph.
-backbone-outbox        = { git = "https://github.com/faridlab/backbone-framework", tag = "v2.7.27", features = ["multi_tenant", "runner"] }
-backbone-queue         = { git = "https://github.com/faridlab/backbone-framework", tag = "v2.7.27" }
-backbone-rate-limit    = { git = "https://github.com/faridlab/backbone-framework", tag = "v2.7.27", features = ["redis"] }
-backbone-search        = { git = "https://github.com/faridlab/backbone-framework", tag = "v2.7.27" }
-backbone-storage       = { git = "https://github.com/faridlab/backbone-framework", tag = "v2.7.27" }
+backbone-outbox        = { git = "https://github.com/faridlab/backbone-framework", tag = "v2.7.28", features = ["multi_tenant", "runner"] }
+backbone-queue         = { git = "https://github.com/faridlab/backbone-framework", tag = "v2.7.28" }
+backbone-rate-limit    = { git = "https://github.com/faridlab/backbone-framework", tag = "v2.7.28", features = ["redis"] }
+backbone-search        = { git = "https://github.com/faridlab/backbone-framework", tag = "v2.7.28" }
+backbone-storage       = { git = "https://github.com/faridlab/backbone-framework", tag = "v2.7.28" }
 
 # Domain modules composed into this app (path deps — workspace siblings, not framework crates).
 backbone-asset         = { path = "../backbone-asset" }          # fixed-asset register + GL-backed lifecycle (mounted with a real GlPostSink)
