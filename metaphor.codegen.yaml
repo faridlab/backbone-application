@@ -25,6 +25,15 @@
 #   {{custom}}       — a hand-written application service with no schema model
 
 user_owned:
+  # Hand-written files the audit found undeclared; declared so a schema
+  # regeneration cannot delete them.
+  - "src/composition/mod.rs"
+  - "src/composition/providers.rs"
+  - "src/asset_gl_sink.rs"
+  - "src/infrastructure/database/migrations/mod.rs"
+  - "src/infrastructure/database/mod.rs"
+  - "src/infrastructure/database/connection.rs"
+
   # ── Composition / bootstrap ─────────────────────────────────────────
   # Hand-written wiring that turns the library surface into a runnable
   # binary. Schema generation MUST leave these alone.
