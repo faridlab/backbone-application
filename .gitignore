@@ -5,3 +5,7 @@ Cargo.lock
 .claude/
 # graphify knowledge graph (local, not committed)
 graphify-out/
+
+# Local module links (`metaphor dev link`): never committed
+/.cargo/config.toml
+/.cargo/Cargo.lock.before-link
