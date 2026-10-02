@@ -1,0 +1,43 @@
+name: Pin probe
+
+# The dependency-graph gate (scripts/pin-probe.sh): every backbone crate comes
+# from crates.io by semver, Cargo.lock resolves unchanged, each backbone name is
+# locked once on one framework version, no [patch] is committed, and no locked
+# version is yanked. Run in release posture, so a local module link can never
+# pass here.
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pin-probe-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  pin-probe:
+    name: Pin probe
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache the cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+          key: cargo-registry-${{ hashFiles('Cargo.lock') }}
+          restore-keys: cargo-registry-
+
+      - name: Run the pin probe
+        run: scripts/pin-probe.sh --release

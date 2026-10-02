@@ -74,3 +74,10 @@ tempfile = "3.0"
 # To build against an unreleased framework or module change, add an untracked
 # .cargo/config.toml with a [patch.crates-io] entry pointing at a local checkout.
 # Never commit a [patch] section: a generated app has no sibling checkouts.
+
+# Dependencies carry line tables only in dev builds. A composed service links many
+# crates nobody steps through, and their full DWARF dominates link-time memory and
+# the build cache; line tables keep file and line in every backtrace frame, and the
+# service's own code keeps the default debug info.
+[profile.dev.package."*"]
+debug = "line-tables-only"
