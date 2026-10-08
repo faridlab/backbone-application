@@ -1,6 +1,6 @@
 [package]
 name = "backbone-app"
-version = "0.6.15"
+version = "0.7.0"
 edition = "2021"
 description = "Minimal Backbone application skeleton — runnable starting point for any Backbone-based service"
 authors = ["Farid Hidayat"]
@@ -13,28 +13,28 @@ name = "backbone-app"
 path = "src/main.rs"
 
 [dependencies]
-backbone-auth          = { version = "2.7.35", features = ["axum"] }
-backbone-authorization = { version = "2.7.35" }
-backbone-cache         = { version = "2.7.35" }
-backbone-core          = { version = "2.7.35" }
-backbone-email         = { version = "2.7.35" }
-backbone-graphql       = { version = "2.7.35" }
-backbone-health        = { version = "2.7.35", features = ["cli"] }
-backbone-jobs          = { version = "2.7.35" }
-backbone-maintenance   = { version = "2.7.35" }
-backbone-messaging     = { version = "2.7.35" }
-backbone-observability = { version = "2.7.35", features = ["prometheus-metrics", "otel-tracing", "middleware", "audit"] }
-backbone-orm           = { version = "2.7.35" }
+backbone-auth          = { version = "3.0.0", features = ["axum"] }
+backbone-authorization = { version = "3.0.0" }
+backbone-cache         = { version = "3.0.0" }
+backbone-core          = { version = "3.0.0" }
+backbone-email         = { version = "3.0.0" }
+backbone-graphql       = { version = "3.0.0" }
+backbone-health        = { version = "3.0.0", features = ["cli"] }
+backbone-jobs          = { version = "3.0.0" }
+backbone-maintenance   = { version = "3.0.0" }
+backbone-messaging     = { version = "3.0.0" }
+backbone-observability = { version = "3.0.0", features = ["prometheus-metrics", "otel-tracing", "middleware", "audit"] }
+backbone-orm           = { version = "3.0.0" }
 # Outbox relay + the multi_tenant company-RLS fence (ADR-0011).
-backbone-outbox        = { version = "2.7.35", features = ["multi_tenant", "runner"] }
-backbone-queue         = { version = "2.7.35" }
-backbone-rate-limit    = { version = "2.7.35", features = ["redis"] }
-backbone-search        = { version = "2.7.35" }
-backbone-storage       = { version = "2.7.35" }
+backbone-outbox        = { version = "3.0.0", features = ["multi_tenant", "runner"] }
+backbone-queue         = { version = "3.0.0" }
+backbone-rate-limit    = { version = "3.0.0", features = ["redis"] }
+backbone-search        = { version = "3.0.0" }
+backbone-storage       = { version = "3.0.0" }
 
 # Domain modules composed into this app, from crates.io like the framework.
-backbone-asset         = "0.5.21"          # fixed-asset register + GL-backed lifecycle (mounted with a real GlPostSink)
-backbone-accounting    = "0.9.27"     # the ledger the asset lifecycle posts to
+backbone-asset = "0.6.0"          # fixed-asset register + GL-backed lifecycle (mounted with a real GlPostSink)
+backbone-accounting = "0.10.0"     # the ledger the asset lifecycle posts to
 
 # External dependencies — versions match what monorepo-backbone uses today.
 tokio = { version = "1.0", features = ["full"] }
