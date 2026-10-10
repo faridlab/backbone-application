@@ -1,6 +1,6 @@
 [package]
 name = "backbone-app"
-version = "0.7.0"
+version = "0.7.1"
 edition = "2021"
 description = "Minimal Backbone application skeleton — runnable starting point for any Backbone-based service"
 authors = ["Farid Hidayat"]
@@ -34,7 +34,7 @@ backbone-storage       = { version = "3.0.0" }
 
 # Domain modules composed into this app, from crates.io like the framework.
 backbone-asset = "0.6.0"          # fixed-asset register + GL-backed lifecycle (mounted with a real GlPostSink)
-backbone-accounting = "0.10.0"     # the ledger the asset lifecycle posts to
+backbone-accounting = "0.11.0"     # the ledger the asset lifecycle posts to
 
 # External dependencies — versions match what monorepo-backbone uses today.
 tokio = { version = "1.0", features = ["full"] }
