@@ -38,7 +38,7 @@ services:
   # PostgreSQL 16, as in deployment/. A dev volume created by PostgreSQL 15 will not
   # start on 16: remove it (`docker compose down -v`) or dump and restore first.
   postgres:
-    image: postgres:16-alpine
+    image: postgres:16.15-alpine
     ports:
       - "5432:5432"
     environment:
@@ -83,7 +83,7 @@ services:
 
   # Prometheus for metrics collection
   prometheus:
-    image: prom/prometheus:latest
+    image: prom/prometheus:v3.15.0
     ports:
       - "9091:9090"
     volumes:
@@ -101,7 +101,7 @@ services:
 
   # Grafana for metrics visualization
   grafana:
-    image: grafana/grafana:latest
+    image: grafana/grafana:13.2.4
     ports:
       - "3000:3000"
     environment:
