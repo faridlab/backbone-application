@@ -12,6 +12,10 @@
 //!   with `metaphor migration run-all` orchestration in real services).
 //! - `healthcheck` — probe `/health` and exit 0 on 2xx, non-zero otherwise.
 //!   Used by the Dockerfile `HEALTHCHECK` directive in distroless images.
+//! - `storage-init` — create the object-storage buckets, their anonymous
+//!   access and the least-privilege service user, then exit. Idempotent; run
+//!   once per deploy as a one-shot job, like `migrate`. Reads the `MINIO_*`
+//!   variables (see `backbone_bucket::provision`).
 //!
 //! ## Quick start
 //!
@@ -59,9 +63,10 @@ async fn main() -> Result<()> {
         match cmd.as_str() {
             "healthcheck" => return run_healthcheck().await,
             "migrate" => return run_migrate().await,
+            "storage-init" => return run_storage_init().await,
             "serve" => {} // explicit default — fall through
             other => anyhow::bail!(
-                "unknown subcommand '{}' (supported: serve, migrate, healthcheck)",
+                "unknown subcommand '{}' (supported: serve, migrate, storage-init, healthcheck)",
                 other
             ),
         }
@@ -338,6 +343,12 @@ async fn main() -> Result<()> {
 
     axum::serve(listener, app).await?;
     Ok(())
+}
+
+async fn run_storage_init() -> Result<()> {
+    backbone_bucket::provision::run_from_env()
+        .await
+        .map_err(|e| anyhow::anyhow!("storage-init failed: {e}"))
 }
 
 async fn run_healthcheck() -> Result<()> {

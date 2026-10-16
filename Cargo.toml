@@ -35,6 +35,7 @@ backbone-storage       = { version = "3.0.0" }
 # Domain modules composed into this app, from crates.io like the framework.
 backbone-asset = "0.6.0"          # fixed-asset register + GL-backed lifecycle (mounted with a real GlPostSink)
 backbone-accounting = "0.11.0"     # the ledger the asset lifecycle posts to
+backbone-bucket = "0.12.0"         # object storage; `storage-init` provisions its buckets and service user
 
 # External dependencies — versions match what monorepo-backbone uses today.
 tokio = { version = "1.0", features = ["full"] }
