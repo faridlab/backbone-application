@@ -136,7 +136,6 @@ services:
       postgres:
         condition: service_healthy
     env_file:
-      - .env.prod
       - ../.env.prod
     environment:
       APP_ENV: prod
@@ -163,10 +162,7 @@ services:
       minio-init:
         condition: service_completed_successfully
     env_file:
-      # Two-layer env (order matters — later file overrides on conflict):
-      #   1. .env.prod                  ← orchestration (this dir)
-      #   2. ../.env.prod               ← service-owned runtime
-      - .env.prod
+      # Only the service-owned runtime file; see the explicit values below.
       - ../.env.prod
     environment:
       APP_ENV: prod
@@ -188,6 +184,18 @@ services:
       REDIS_URL: redis://redis:6379
       MINIO_ENDPOINT: http://minio:9000
       MINIO_PUBLIC_ENDPOINT: https://s3.${DOMAIN:?must be set in .env.prod (apex domain, e.g. example.com)}
+      # Values the service needs from the orchestration file, passed one by one so
+      # its root and admin secrets (RustFS root keys, Postgres and Grafana admin
+      # passwords) never reach this container.
+      MINIO_PRIVATE_BUCKET: ${MINIO_PRIVATE_BUCKET}
+      MINIO_PUBLIC_BUCKET: ${MINIO_PUBLIC_BUCKET}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-}
+      SMTP_SECURE: ${SMTP_SECURE:-}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      EMAIL_FROM: ${EMAIL_FROM:-}
+      EMAIL_FROM_NAME: ${EMAIL_FROM_NAME:-}
     networks: [edge, backend, observability]
     healthcheck:
       test: ["CMD", "/app/backbone-app", "healthcheck"]
@@ -257,7 +265,6 @@ services:
   grafana:
     image: grafana/grafana:13.2.4@sha256:dbbc38ea21103cefb50396340cd88afec779c7e070b0a7bf5a75b4ce46651d3f
     restart: unless-stopped
-    env_file: [.env.prod]
     environment:
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?must be set in .env.prod (Grafana login password)}
       GF_USERS_ALLOW_SIGN_UP: "false"
