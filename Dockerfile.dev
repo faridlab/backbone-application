@@ -6,7 +6,7 @@
 #
 # Production builds use the multi-stage release Dockerfile next door.
 
-FROM rust:1.91-slim-bookworm
+FROM rust:1.97-slim-bookworm
 
 WORKDIR /app
 

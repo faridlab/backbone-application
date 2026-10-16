@@ -13,7 +13,7 @@
 # ─── Shared base ─────────────────────────────────────────────────────────
 # Pin rustc minor version to avoid silent toolchain drift on rebuilds. Bump
 # intentionally alongside Cargo.lock updates. Matches local `rustc --version`.
-FROM rust:1.91-slim-bookworm AS chef
+FROM rust:1.97-slim-bookworm AS chef
 WORKDIR /build
 RUN apt-get update && apt-get install -y --no-install-recommends \
       pkg-config \
