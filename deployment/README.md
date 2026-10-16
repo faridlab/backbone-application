@@ -14,7 +14,7 @@ The VPS mirrors the project root so compose `env_file:` paths resolve identicall
 │   ├── caddy/Caddyfile
 │   ├── prometheus/prometheus.yml
 │   ├── loki/loki-config.yaml
-│   ├── promtail/promtail-config.yaml
+│   ├── alloy/config.alloy
 │   ├── grafana/provisioning/
 │   └── backups/
 │       ├── pg-backup.sh

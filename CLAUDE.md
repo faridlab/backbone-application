@@ -106,7 +106,7 @@ Two compose paths ship with the skeleton — both are functional, pick the one t
 
 ## Production stack
 
-[`deployment/`](deployment/) ships a single-host production-grade compose stack: postgres + redis + minio + Caddy (TLS via Let's Encrypt) + Prometheus + Loki + Promtail + Grafana (provisioned datasources, dashboards, alerts) + cadvisor + node-exporter + postgres-exporter + uptime-kuma. See [`deployment/README.md`](deployment/README.md) for the operator runbook.
+[`deployment/`](deployment/) ships a single-host production-grade compose stack: postgres + redis + minio + Caddy (TLS via Let's Encrypt) + Prometheus + Loki + Alloy + Grafana (provisioned datasources, dashboards, alerts) + cadvisor + node-exporter + postgres-exporter + uptime-kuma. See [`deployment/README.md`](deployment/README.md) for the operator runbook.
 
 Two env files, two ownerships:
 - [`deployment/.env.prod`](deployment/.env.prod.example) — orchestration (image tags, postgres init, MinIO root creds, Grafana, SMTP, edge `DOMAIN`).
