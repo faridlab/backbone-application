@@ -56,15 +56,16 @@ services:
       timeout: 5s
       retries: 5
 
-  # Redis for caching and sessions
+  # Valkey for caching and sessions: the BSD-3 Linux Foundation fork of
+  # Redis 7.2, wire-compatible with Redis clients (REDIS_URL keeps working).
+  # Redis 7.4+ images are RSALv2/SSPL, which is not an open source license.
   redis:
-    image: redis:7-alpine
+    image: valkey/valkey:9.0.6-alpine
     ports:
       - "6379:6379"
     volumes:
       - redis_data:/data
-      - ./redis.conf:/usr/local/etc/redis/redis.conf
-    command: redis-server /usr/local/etc/redis/redis.conf
+    command: ["valkey-server", "--save", "60", "1", "--loglevel", "warning"]
     networks:
       - backbone-network
     restart: unless-stopped
@@ -134,18 +135,20 @@ services:
     profiles:
       - monitoring
 
-  # MinIO for S3-compatible storage (development)
+  # S3-compatible storage (development). Service name `minio` is kept as a
+  # role name; the server is RustFS (Apache-2.0, S3- and `mc admin`-compatible)
+  # because MinIO Community no longer publishes images or security fixes.
   minio:
-    image: minio/minio:latest
+    image: rustfs/rustfs:1.0.2
     ports:
       - "9000:9000"
       - "9001:9001"
     environment:
-      - MINIO_ROOT_USER=minioadmin
-      - MINIO_ROOT_PASSWORD=minioadmin
+      - RUSTFS_ACCESS_KEY=minioadmin
+      - RUSTFS_SECRET_KEY=minioadmin
     volumes:
       - minio_data:/data
-    command: server /data --console-address ":9001"
+    command: ["server", "--console-enable", "/data"]
     networks:
       - backbone-network
     restart: unless-stopped
