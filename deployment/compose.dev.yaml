@@ -142,7 +142,7 @@ services:
       CARGO_BUILD_JOBS: ${CARGO_BUILD_JOBS:-2}
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
       # Outbox relay role (ADR-0011) — same DB, NOBYPASSRLS login created by scripts/rls_app_role.sql.
-      RELAY_DATABASE_URL: postgresql://${RELAY_POSTGRES_USER}:${RELAY_POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      RELAY_DATABASE_URL: postgresql://${RELAY_POSTGRES_USER:?must be set in .env.dev (metaphor_relay from scripts/rls_app_role.sql)}:${RELAY_POSTGRES_PASSWORD:?must be set in .env.dev}@postgres:5432/${POSTGRES_DB}
       REDIS_URL: redis://redis:6379
       MINIO_ENDPOINT: http://minio:9000
       MINIO_PUBLIC_ENDPOINT: http://localhost:9000

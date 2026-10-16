@@ -145,7 +145,7 @@ services:
       RUST_ENV: prod
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
       # Outbox relay role (ADR-0011) — same DB, NOBYPASSRLS login created by scripts/rls_app_role.sql.
-      RELAY_DATABASE_URL: postgresql://${RELAY_POSTGRES_USER}:${RELAY_POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      RELAY_DATABASE_URL: postgresql://${RELAY_POSTGRES_USER:?must be set in .env.prod (metaphor_relay from scripts/rls_app_role.sql)}:${RELAY_POSTGRES_PASSWORD:?must be set in .env.prod}@postgres:5432/${POSTGRES_DB}
     networks: [backend]
     command: ["migrate"]
     restart: "no"
@@ -184,7 +184,7 @@ services:
       MIGRATIONS_STRICT: "true"
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
       # Outbox relay role (ADR-0011) — same DB, NOBYPASSRLS login created by scripts/rls_app_role.sql.
-      RELAY_DATABASE_URL: postgresql://${RELAY_POSTGRES_USER}:${RELAY_POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      RELAY_DATABASE_URL: postgresql://${RELAY_POSTGRES_USER:?must be set in .env.prod (metaphor_relay from scripts/rls_app_role.sql)}:${RELAY_POSTGRES_PASSWORD:?must be set in .env.prod}@postgres:5432/${POSTGRES_DB}
       REDIS_URL: redis://redis:6379
       MINIO_ENDPOINT: http://minio:9000
       MINIO_PUBLIC_ENDPOINT: https://s3.${DOMAIN:?must be set in .env.prod (apex domain, e.g. example.com)}
