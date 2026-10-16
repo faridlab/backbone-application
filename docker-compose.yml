@@ -61,7 +61,7 @@ services:
   # Redis 7.2, wire-compatible with Redis clients (REDIS_URL keeps working).
   # Redis 7.4+ images are RSALv2/SSPL, which is not an open source license.
   redis:
-    image: valkey/valkey:9.0.6-alpine
+    image: valkey/valkey:9.1.2-alpine
     ports:
       - "6379:6379"
     volumes:
