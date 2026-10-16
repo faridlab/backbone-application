@@ -35,9 +35,10 @@ services:
     restart: unless-stopped
     command: cargo run --bin backbone
 
-  # PostgreSQL Database
+  # PostgreSQL 16, as in deployment/. A dev volume created by PostgreSQL 15 will not
+  # start on 16: remove it (`docker compose down -v`) or dump and restore first.
   postgres:
-    image: postgres:15-alpine
+    image: postgres:16-alpine
     ports:
       - "5432:5432"
     environment:
@@ -70,32 +71,15 @@ services:
       - backbone-network
     restart: unless-stopped
 
-  # MailHog for email testing (development)
-  mailhog:
-    image: mailhog/mailhog
+  # Mailpit for email testing (development; MIT, maintained successor to MailHog)
+  mailpit:
+    image: axllent/mailpit:v1.31.6
     ports:
       - "1025:1025"  # SMTP
       - "8025:8025"  # Web UI
     networks:
       - backbone-network
     restart: unless-stopped
-
-  # Elasticsearch for search (optional)
-  elasticsearch:
-    image: docker.elastic.co/elasticsearch/elasticsearch:8.11.0
-    ports:
-      - "9200:9200"
-    environment:
-      - discovery.type=single-node
-      - xpack.security.enabled=false
-      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
-    volumes:
-      - elasticsearch_data:/usr/share/elasticsearch/data
-    networks:
-      - backbone-network
-    restart: unless-stopped
-    profiles:
-      - search
 
   # Prometheus for metrics collection
   prometheus:
@@ -158,7 +142,6 @@ services:
 volumes:
   postgres_data:
   redis_data:
-  elasticsearch_data:
   prometheus_data:
   grafana_data:
   minio_data:
