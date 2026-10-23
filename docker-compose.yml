@@ -61,7 +61,7 @@ services:
   # Redis 7.2, wire-compatible with Redis clients (REDIS_URL keeps working).
   # Redis 7.4+ images are RSALv2/SSPL, which is not an open source license.
   redis:
-    image: valkey/valkey:9.0.6-alpine
+    image: valkey/valkey:9.1.2-alpine
     ports:
       - "6379:6379"
     volumes:
@@ -123,7 +123,7 @@ services:
   # role name; the server is RustFS (Apache-2.0, S3- and `mc admin`-compatible)
   # because MinIO Community no longer publishes images or security fixes.
   minio:
-    image: rustfs/rustfs:1.0.2
+    image: rustfs/rustfs:1.0.3
     ports:
       - "9000:9000"
       - "9001:9001"
