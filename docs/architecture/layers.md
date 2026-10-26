@@ -31,7 +31,7 @@ If you're in `domain/` and you `use sqlx::…` — stop, that's a leak.
 | `src/domain/` | Enterprise Business Rules | Entities, value objects, repository **traits**, state machines, specifications, domain events. Pure Rust. |
 | `src/application/` | Application Business Rules | Use cases, DTOs, application services (mostly `type X = GenericCrudService<…>` aliases), workflows, validators. |
 | `src/infrastructure/` | Interface Adapters | Repository **impls** (wrapping `backbone-orm`), persistence, cache, messaging, event store, external clients. |
-| `src/presentation/` | Frameworks & Drivers | HTTP/gRPC/GraphQL handlers, CLI entry, wire DTOs, versioning. |
+| `src/presentation/` | Frameworks & Drivers | HTTP/gRPC/GraphQL handlers, CLI entry, wire DTOs, versioning, and **bus adapters** (`presentation/messaging/` — integration-event consumers that adapt an envelope onto an application service). |
 | `src/middleware/` | Frameworks & Drivers | Tower layers — auth, CORS, rate-limit, security headers. |
 | `src/routes/` | Frameworks & Drivers | Router composition (entity routers → versioned API). |
 | `src/bootstrap/` | Frameworks & Drivers | Initialisation helpers (e.g. module wiring). |
@@ -131,12 +131,14 @@ The custom helpers under `src/handlers/` sit between presentation and applicatio
 
 - **MUST** implement domain traits, not invent new public ones.
 - **MUST** keep `sqlx`/HTTP-client/Kafka details contained here.
+- **MUST** ride the org fence honestly. Inside a request, use the scoped helpers (`fetch_*_row_scoped`, `execute_scoped`) — they ride the request-dedicated connection the session middleware fenced. Code with **no request principal** (bus consumers, delivery workers) MUST read cross-fence rows through narrow `SECURITY DEFINER` functions instead: a scoped helper without a bound scope sees **nothing**, which fails closed *silently* — queries return zero rows, nothing errors, and the bug looks like missing data.
 - **NEVER** be imported from `domain/` or `application/` (except via trait objects passed in at composition time in `main.rs`).
 
 ### presentation/
 
 - **MUST** convert wire format ↔ DTO and call into an application service. Nothing else.
 - **NEVER** call repositories or `sqlx` directly.
+- **NEVER** build a feature module at `src/<feature>/` that mixes handlers, SQL and rules (the `src/gateway/`, `src/complaints/`, `src/integration/` shape). A flow splits into the four layers: a port in `domain/repositories/`, the SQL in an `infrastructure/persistence/` impl, use cases in an `application/services/` service, and a thin handler in `presentation/http/` (bus consumers in `presentation/messaging/`, background worker loops inside the application service they drive). If the folder has no layer name, it is the violation.
 - **NEVER** put validation logic that belongs in a domain invariant. (Surface-level type/format checks are fine.)
 - **SHOULD** use `BackboneCrudHandler` for any standard CRUD surface. Hand-rolled routers need a written justification — see [`solid.md`](./solid.md).
 

@@ -58,6 +58,8 @@ Cross-references [`layers.md`](./layers.md) and [`overview.md`](./overview.md).
 
 - **MUST** respect the layer dependency rule. Inner layers (`domain/`) MUST NOT import outer-layer crates (`sqlx`, `axum`, `tonic`, `reqwest`).
 - **MUST** use the framework primitives (`BackboneCrudHandler`, `GenericCrudService`, `GenericCrudRepository`) before hand-rolling.
+- **NEVER** write SQL in the presentation layer — not in handlers, not in bus adapters, not in a `src/<feature>/` module that grew its own handlers. SQL lives in `src/infrastructure/persistence/` behind a port in `src/domain/repositories/`; use cases in `src/application/services/`. See [`layers.md`](./layers.md) for the four-layer split of a hand-written flow.
+- **NEVER** read cross-fence rows from scope-less code (bus consumers, workers) with the scoped helpers — they silently return nothing without a request scope. That path goes through narrow `SECURITY DEFINER` functions.
 - **NEVER** edit anything under a workspace's `modules/*` tree — those are read-only clones, wiped by the next `metaphor sync`. Fix upstream, bump `ref:` in the workspace `metaphor.yaml`, `metaphor sync --update`.
 - **NEVER** hand-edit `metaphor.lock`. Regenerate via `metaphor sync --update`.
 - **NEVER** copy files between `apps/*`. If two apps need shared code, it belongs in an upstream module.
