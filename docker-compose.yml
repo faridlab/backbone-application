@@ -38,7 +38,7 @@ services:
   # PostgreSQL 16, as in deployment/. A dev volume created by PostgreSQL 15 will not
   # start on 16: remove it (`docker compose down -v`) or dump and restore first.
   postgres:
-    image: postgres:16.15-alpine
+    image: postgres:16.16-alpine
     ports:
       - "5432:5432"
     environment:
@@ -61,7 +61,7 @@ services:
   # Redis 7.2, wire-compatible with Redis clients (REDIS_URL keeps working).
   # Redis 7.4+ images are RSALv2/SSPL, which is not an open source license.
   redis:
-    image: valkey/valkey:9.0.6-alpine
+    image: valkey/valkey:9.2.0-alpine
     ports:
       - "6379:6379"
     volumes:
@@ -73,7 +73,7 @@ services:
 
   # Mailpit for email testing (development; MIT, maintained successor to MailHog)
   mailpit:
-    image: axllent/mailpit:v1.31.6
+    image: axllent/mailpit:v1.34.0
     ports:
       - "1025:1025"  # SMTP
       - "8025:8025"  # Web UI
@@ -83,7 +83,7 @@ services:
 
   # Prometheus for metrics collection
   prometheus:
-    image: prom/prometheus:v3.15.0
+    image: prom/prometheus:v3.16.0
     ports:
       - "9091:9090"
     volumes:
@@ -101,7 +101,7 @@ services:
 
   # Grafana for metrics visualization
   grafana:
-    image: grafana/grafana:13.2.4
+    image: grafana/grafana:13.3.1
     ports:
       - "3000:3000"
     environment:
@@ -123,7 +123,7 @@ services:
   # role name; the server is RustFS (Apache-2.0, S3- and `mc admin`-compatible)
   # because MinIO Community no longer publishes images or security fixes.
   minio:
-    image: rustfs/rustfs:1.0.2
+    image: rustfs/rustfs:1.0.6
     ports:
       - "9000:9000"
       - "9001:9001"
